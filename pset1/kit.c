@@ -12,8 +12,7 @@
 int report_error(char *syscall);
 
 int main(int argc, char *argv[]) {
-    int opt, i, fd_output, fd_temp, fd_input, r_out, w_out;
-    char buf[4096];
+    int opt, i, fd_output = -1, fd_temp, fd_input, r_out, w_out, buf_len = 4096, o = 0, b = 0; //o indicates how many times the o flag was used and b indicates buf flag
     
     // Terminate if no arguments were entered
     if(argc <= 1) {
@@ -32,23 +31,33 @@ int main(int argc, char *argv[]) {
 
     for(i = 1; i < argc; i++ ) {
         arguments[i-1] = (argv+i);
-        //printf("Current argument (%d): %s\n", i-1, *arguments[i-1]);
-        
-        if(i == 1 && !strcmp(*arguments[i-1], "-o")) continue;                               // If first argument is 'o' then continue
-        else if(i != 1 && !strcmp(*arguments[i-2], "-o")) {   // If specifing output then
-            if(i != 2) { // The -o flag is not the first option
+        if(!strcmp(*arguments[i-1], "-o")) {
+            if(o++ > 0) {
                 printf("ERROR: Two output files cannot be designated.");
                 return -1;
-            } else {
-                // Open file for writing
-                fd_output = open(*arguments[i-1], O_WRONLY | O_CREAT | O_TRUNC, 0666);
+            }
+            continue;
+        } else if(!strcmp(*arguments[i-1], "-b")) {
+            printf("IN HERE ASSHOLE %d\n\n", b);
+            if(b++ > 0) {
+                printf("ERROR: Two buffer sizes cannot be designated.");
+                return -1;
+            }
+
+            printf("IN HERE ASSHOLE %d\n\n", b);
+            continue;
+        } else if(b > 0) {
+            b--;
+            buf_len = atoi(*arguments[i-1]);
+            continue;
+        } else {
+            if(fd_output == -1) {
+                fd_output = o ? open(*arguments[i-1], O_WRONLY | O_CREAT | O_TRUNC, 0666) : 1; // If parsing the first argument, then stdout must be the output
                 if(errno) {
                     ERROR_MESSAGE("open(\"", *arguments[i-1],"\", O_WRONLY | O_CREAT | O_TRUNC, 0666)");
                     return -1;
                 }
             }
-        } else {
-            if(i == 1) fd_output = 1; // If parsing the first argument, then stdout must be the output
 
             // Open file to read
             fd_input = !strcmp(*arguments[i-1], "-") ? 0 : open(*arguments[i-1], O_RDONLY);
@@ -56,6 +65,8 @@ int main(int argc, char *argv[]) {
                 ERROR_MESSAGE("open(\"", *arguments[i-1], "\", O_RDONLY)");
                 return -1;
             }
+            
+            char buf[buf_len];
             
             // Read file and print to output
             while((r_out = read(fd_input, buf, sizeof buf)) != 0) {
@@ -73,6 +84,8 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+    
+    char buf[buf_len];
 
     // Open the temperary file for reading
     fd_temp = open(".temp_output_stream_noam_schuck.txt", O_RDONLY);
