@@ -30,30 +30,25 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-
     for(i = 1; i < argc; i++ ) {
         arguments[i-1] = (argv+i);
         //printf("Current argument (%d): %s\n", i-1, *arguments[i-1]);
         
-        if(i == 1 && !strcmp(*arguments[i-1], "-o")) {
-            continue;                               // If first argument is 'o' then continue
-        }  else if(i != 1 && !strcmp(*arguments[i-2], "-o")) {   // If specifing output then
+        if(i == 1 && !strcmp(*arguments[i-1], "-o")) continue;                               // If first argument is 'o' then continue
+        else if(i != 1 && !strcmp(*arguments[i-2], "-o")) {   // If specifing output then
             if(i != 2) { // The -o flag is not the first option
                 printf("ERROR: Two output files cannot be designated.");
                 return -1;
             } else {
-                // open the file and assign fd_output the fd of the file
+                // Open file for writing
                 fd_output = open(*arguments[i-1], O_WRONLY | O_CREAT | O_TRUNC, 0666);
-
-                // Error checking
                 if(errno) {
                     ERROR_MESSAGE("open(\"", *arguments[i-1],"\", O_WRONLY | O_CREAT | O_TRUNC, 0666)");
                     return -1;
                 }
             }
         } else {
-
-            if(i == 1) fd_output = 1; // If here on first argument, then stdout is the output
+            if(i == 1) fd_output = 1; // If parsing the first argument, then stdout must be the output
 
             // Open file to read
             fd_input = !strcmp(*arguments[i-1], "-") ? 0 : open(*arguments[i-1], O_RDONLY);
@@ -72,20 +67,21 @@ int main(int argc, char *argv[]) {
                     if(errno) {
                         ERROR_MESSAGE("writing file \"", *arguments[i-1], "\" to output");
                         return -1;
-                    } else if(w_out < r_out) {
-                        printf("ERROR: Partial write occured when reading file \"%s\".\n\n", *arguments[i-1]);
-                    }
+                    } else if(w_out < r_out) 
+                        printf("ERROR: Partial write occured when writing file \"%s\" to temperary output.\n\n", *arguments[i-1]);
                 }
             }
         }
     }
 
+    // Open the temperary file for reading
     fd_temp = open(".temp_output_stream_noam_schuck.txt", O_RDONLY);
     if(errno) {
         ERROR_MESSAGE("open(\".temp_output_stream_noam_schuck.txt\"", "", ", O_RDONLY)");
         return -1;
     }
 
+    // Copy what was written in the temperary file to the designated output
     while((r_out = read(fd_temp, buf, sizeof buf)) != 0) {
         if(errno) {
             ERROR_MESSAGE("read() on file \"", *arguments[i-1], "\"");
@@ -95,12 +91,12 @@ int main(int argc, char *argv[]) {
             if(errno) {
                 ERROR_MESSAGE("writing file \"", *arguments[i-1], "\" to output");
                 return -1;
-            } else if(w_out < r_out) {
-                printf("ERROR: Partial write occured when reading file \"%s\".\n\n", *arguments[i-1]);
-            }
+            } else if(w_out < r_out) 
+                printf("ERROR: Partial write occured when writing file \"%s\" to output.\n\n", *arguments[i-1]);
         }
     }
 
+    // Delete the temperary file
     unlink("./.temp_output_stream_noam_schuck.txt");
     if(errno) {
         ERROR_MESSAGE("unlink() on \".temp_output_stream_noam_schuck.txt\"", "", "");
