@@ -38,13 +38,10 @@ int main(int argc, char *argv[]) {
             }
             continue;
         } else if(!strcmp(*arguments[i-1], "-b")) {
-            printf("IN HERE ASSHOLE %d\n\n", b);
             if(b++ > 0) {
                 printf("ERROR: Two buffer sizes cannot be designated.");
                 return -1;
             }
-
-            printf("IN HERE ASSHOLE %d\n\n", b);
             continue;
         } else if(b > 0) {
             b--;
