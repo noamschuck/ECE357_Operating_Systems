@@ -23,12 +23,6 @@ int main(int argc, char *argv[]) {
     // Parses through all of the arguments and adds them to arguments
     char **arguments[argc-1]; // Array that holds all of the arguments
     
-    fd_temp = open(".temp_output_stream_noam_schuck.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if(errno) {
-        ERROR_MESSAGE("open(\".temp_output_stream_noam_schuck.txt\"", "", ", O_WRONLY | O_CREAT | O_TRUNC, 0666)");
-        return -1;
-    }
-
     for(i = 1; i < argc; i++ ) {
         arguments[i-1] = (argv+i);
         if(!strcmp(*arguments[i-1], "-o")) {
@@ -71,7 +65,7 @@ int main(int argc, char *argv[]) {
                     ERROR_MESSAGE("read() on file \"", *arguments[i-1], "\"");
                     return -1;
                 } else {
-                    w_out = write(fd_temp, buf, r_out);
+                    w_out = write(fd_output, buf, r_out);
                     if(errno) {
                         ERROR_MESSAGE("writing file \"", *arguments[i-1], "\" to output");
                         return -1;
@@ -81,37 +75,5 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-    
-    char buf[buf_len];
-
-    // Open the temperary file for reading
-    fd_temp = open(".temp_output_stream_noam_schuck.txt", O_RDONLY);
-    if(errno) {
-        ERROR_MESSAGE("open(\".temp_output_stream_noam_schuck.txt\"", "", ", O_RDONLY)");
-        return -1;
-    }
-
-    // Copy what was written in the temperary file to the designated output
-    while((r_out = read(fd_temp, buf, sizeof buf)) != 0) {
-        if(errno) {
-            ERROR_MESSAGE("read() on file \"", *arguments[i-1], "\"");
-            return -1;
-        } else {
-            w_out = write(fd_output, buf, r_out);
-            if(errno) {
-                ERROR_MESSAGE("writing file \"", *arguments[i-1], "\" to output");
-                return -1;
-            } else if(w_out < r_out) 
-                printf("ERROR: Partial write occured when writing file \"%s\" to output.\n\n", *arguments[i-1]);
-        }
-    }
-
-    // Delete the temperary file
-    unlink("./.temp_output_stream_noam_schuck.txt");
-    if(errno) {
-        ERROR_MESSAGE("unlink() on \".temp_output_stream_noam_schuck.txt\"", "", "");
-        return -1;
-    }
-
     return 0;
 }
