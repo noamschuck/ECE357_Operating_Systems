@@ -7,13 +7,10 @@
 
 #define ERROR_MESSAGE(a, b, c) (printf("ERROR: System call %s%s%s failed because \"%s\" (Error #%d).\n\n", a, b, c, strerror(errno), errno))
 
-// can we assume the flag will be at the start?
-
-int report_error(char *syscall);
-
 int main(int argc, char *argv[]) {
     int opt, i, fd_output = -1, fd_temp, fd_input, r_out, w_out, buf_len = 4096, o = 0, b = 0; //o indicates how many times the o flag was used and b indicates buf flag
-    
+    char *fname;
+
     // Terminate if no arguments were entered
     if(argc <= 1) {
         printf("ERROR: No arguments entered.\n\n");
@@ -29,6 +26,8 @@ int main(int argc, char *argv[]) {
             if(o++ > 0) {
                 printf("ERROR: Two output files cannot be designated.");
                 return -1;
+            } else {
+                fname = *(argv+i+1);
             }
             continue;
         } else if(!strcmp(*arguments[i-1], "-b")) {
@@ -41,15 +40,18 @@ int main(int argc, char *argv[]) {
             b--;
             buf_len = atoi(*arguments[i-1]);
             continue;
+        } else if(o && !strcmp(*arguments[i-2], "-o")) {
+            fd_output = open(*arguments[i-1], O_WRONLY | O_CREAT | O_TRUNC, 0667);
+            if(errno) {
+                ERROR_MESSAGE("open(\"", *arguments[i-1],"\", O_WRONLY | O_CREAT | O_TRUNC, 0666)");
+                return -1;
+            }
+            continue;
         } else {
             if(fd_output == -1) {
-                fd_output = o ? open(*arguments[i-1], O_WRONLY | O_CREAT | O_TRUNC, 0666) : 1; // If parsing the first argument, then stdout must be the output
-                if(errno) {
-                    ERROR_MESSAGE("open(\"", *arguments[i-1],"\", O_WRONLY | O_CREAT | O_TRUNC, 0666)");
-                    return -1;
-                }
+                fd_output = 1; // If parsing the first argument, then stdout must be the output
             }
-
+            
             // Open file to read
             fd_input = !strcmp(*arguments[i-1], "-") ? 0 : open(*arguments[i-1], O_RDONLY);
             if(errno) {
