@@ -21,7 +21,7 @@ int explore_directory(char *papa, metadata *data, ino_t *seen) {
     
     if(!pops) REPORT("opendir(", papa, ")");
     while((entry = readdir(pops))) {
-        if(stat(strcat(strcat(strcpy(fname, papa), "/"), entry->d_name), &stat_info)) REPORT("stat(\"", fname, "\", &stat_info)");
+        if(lstat(strcat(strcat(strcpy(fname, papa), "/"), entry->d_name), &stat_info)) REPORT("lstat(\"", fname, "\", &stat_info)");
 
         if(entry->d_type != DT_DIR) {
             int end = sizeof(seen), index = sizeof(seen)/sizeof(ino_t); 
@@ -45,12 +45,24 @@ int explore_directory(char *papa, metadata *data, ino_t *seen) {
         }
 
         switch(entry->d_type) {
-            
             case DT_DIR:
                 data->num_inodes[0]++;
                 break;
             case DT_LNK:
                 data->num_inodes[1]++;
+
+                errno = 0;
+                int fd1 = open(fname, O_RDONLY), fd2, bad = 0;
+
+                if(errno && errno != EACCES) bad = 1;
+                else {
+                    int fd2 = open(fname, O_WRONLY);
+                    if(errno && errno != EACCES) bad = 2;
+                }
+                if(bad) data->bad_symlink_count++;
+                else {if(close((fd1 == 1) ? fd1 : fd2) < 0) REPORT("Open(", fname, ")");}
+                errno = 0;
+                
                 break;
             case DT_REG:
                 data->num_inodes[2]++;
@@ -78,7 +90,7 @@ int explore_directory(char *papa, metadata *data, ino_t *seen) {
         
     }
 
-    if(errno) REPORT("readdir(", papa, " directory entry)"); // If readdir failed
+    if(errno) REPORT("readdir(", papa, " ['s directory entry])"); // If readdir failed
 
     free(fname);
 
