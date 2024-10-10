@@ -1,6 +1,7 @@
 #include "macros.h"
 
 int explore_directory(char *papa, metadata *data, ino_t *seen);
+int check_symlink(char *fname);
 
 int main(int argc, char *arg[]) {
     metadata data = {{0, 0, 0}, 0, 1, 0, 0, 0};
@@ -50,19 +51,7 @@ int explore_directory(char *papa, metadata *data, ino_t *seen) {
                 break;
             case DT_LNK:
                 data->num_inodes[1]++;
-
-                errno = 0;
-                int fd1 = open(fname, O_RDONLY), fd2, bad = 0;
-
-                if(errno && errno != EACCES) bad = 1;
-                else {
-                    int fd2 = open(fname, O_WRONLY);
-                    if(errno && errno != EACCES) bad = 2;
-                }
-                if(bad) data->bad_symlink_count++;
-                else {if(close((fd1 == 1) ? fd1 : fd2) < 0) REPORT("Open(", fname, ")");}
-                errno = 0;
-                
+                if(check_symlink(fname)) data->bad_symlink_count++;
                 break;
             case DT_REG:
                 data->num_inodes[2]++;
@@ -88,6 +77,7 @@ int explore_directory(char *papa, metadata *data, ino_t *seen) {
                 return -1;
         }
         
+        
     }
 
     if(errno) REPORT("readdir(", papa, " ['s directory entry])"); // If readdir failed
@@ -95,4 +85,19 @@ int explore_directory(char *papa, metadata *data, ino_t *seen) {
     free(fname);
 
     return 0;
+}
+
+int check_symlink(char *fname) {
+    errno = 0;
+    int fd1 = open(fname, O_RDONLY), fd2, bad = 0;
+
+    if(errno && errno != EACCES) bad = 1;
+    else {
+        int fd2 = open(fname, O_WRONLY);
+        if(errno && errno != EACCES) bad = 2;
+    }
+
+    if(!bad && close((bad == 1) ? fd1 : fd2) < 0) REPORT("Open(", fname, ")");
+    errno = 0;
+    return bad;
 }
