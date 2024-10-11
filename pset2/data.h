@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 typedef struct {
-    int num_inodes[8]; // Directory, Simlink, File, Block Device, Socket, Character Device, Named Pipe,  Unknown Types
+    int num_inodes[7]; // Directory, Simlink, File, Block Device, Socket, Character Device, Named Pipe
     int total_size; // Total size of regular files
     int block_count; // Total number of blocks allocated to regular files
     int link_count; // Number of inodes which are hard linked
@@ -27,7 +27,6 @@ int print_metadata(metadata data) {
     printf("Socket iNode: %d\n", data.num_inodes[4]);
     printf("Character Device iNode: %d\n", data.num_inodes[5]);
     printf("Named Pipe iNode: %d\n", data.num_inodes[6]);
-    printf("Unknown Type iNode: %d\n\n", data.num_inodes[7]);
 
     return 0;
 }

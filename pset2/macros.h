@@ -20,6 +20,9 @@
 //Macro variables
 #define BUF_SIZE 4096
 #define BEEN_THERE_DONE_THAT 1
+#define ETA_0 2
+#define ITS_A_FOLDER 3
+#define YOU_CANT_CALL_ME_THAT 1
 
 // Macro functions
 #define REPORT(a, b, c) (fprintf(stderr, "ERROR %d: An error occured attmpting syscall \"%s%s%s\""". %s.\n", errno, a, b, c, strerror(errno)))
