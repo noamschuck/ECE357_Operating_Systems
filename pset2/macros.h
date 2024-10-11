@@ -4,13 +4,14 @@
 // Includes and stuff that isn't mine
 #include <dirent.h>
 #include <sys/types.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h> 
+#include <math.h>
 #define _GNU_SOURCE
 
 //My stuff

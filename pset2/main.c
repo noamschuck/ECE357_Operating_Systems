@@ -11,8 +11,10 @@ metadata data = {{0, 0, 0}, 0, 0, 0, 0, 0};
 
 int main(int argc, char *arg[]) {
 
-    explore_directory(arg[1]);
-    print_metadata(data);
+    int return_val = explore_directory(arg[1]);
+    
+    if(!return_val) print_metadata(data);
+    else return -1;
 
     return 0;
 }
@@ -22,18 +24,29 @@ int explore_directory(const char *papa) {
     struct dirent *entry = NULL;
     struct stat stat_info;
     char *fname = (char *)malloc(256+strlen(papa)+1);
+    if(fname < 0) {
+        REPORT("malloc(", "", ")"); 
+        return -1;
+    }
     DIR *pops = NULL;
     
     // Opens the directory to explore
     pops = opendir(papa);
-    if(!pops) REPORT("opendir(", papa, ")");
+    if(!pops) {
+        REPORT("opendir(", papa, ")");
+        return -1;
+    }
+
     while((entry = readdir(pops))) {
         
         // Continue if looking at . or ..
         if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
 
         // Get full path name and stat info
-        if(lstat(strcat(strcat(strcpy(fname, papa), "/"), entry->d_name), &stat_info)) REPORT("lstat(\"", fname, "\", &stat_info)");
+        if(lstat(strcat(strcat(strcpy(fname, papa), "/"), entry->d_name), &stat_info)) {
+            REPORT("lstat(\"", fname, "\", &stat_info)");
+            continue;
+        }
 
         // Check if bad pathname
         name_status = check_name(fname);
@@ -56,7 +69,7 @@ int explore_directory(const char *papa) {
                 break;
             case S_IFLNK:
                 data.num_inodes[1]++;
-                if(check_symlink(fname)) data.bad_symlink_count++;
+                if(!check_symlink(fname)) data.bad_symlink_count++;
                 break;
             case S_IFREG:
                 data.num_inodes[2]++;
@@ -81,7 +94,7 @@ int explore_directory(const char *papa) {
         }
     }
 
-    if(errno) REPORT("readdir(", papa, " ['s directory entry])"); // If readdir failed
+    if(errno) REPORT("readdir(", papa, ")"); // If readdir failed
     free(fname);
 
     return 0;
@@ -99,7 +112,12 @@ int check_inode(struct stat stat_info) {
     
     // If we havent seen the inode then add it to the list
     if(stat_info.st_nlink > 1) {
-        been_there_done_that = realloc(been_there_done_that, end + sizeof(ino_t));
+        been_there_done_that = realloc(been_there_done_that, end + sizeof(ino_t)); // allocating space for another inode
+        if(been_there_done_that < 0) {
+            REPORT("realloc(been_there_done_that, end + sizeof(ino_t))","","");
+            errno = 0;
+            return -1;
+        }
         been_there_done_that[num_inodes] = stat_info.st_ino;
         num_inodes++;
         return ETA_0;
@@ -108,25 +126,27 @@ int check_inode(struct stat stat_info) {
 }
 
 int check_symlink(char *fname) {
-    errno = 0;
-    int fd1 = open(fname, O_RDONLY), fd2, bad = 0;
+    
+    struct stat s;
+    int return_val = 0;
+    if(stat(fname, &s) == -1) {
+        if(errno == ENOENT) {
+            return_val = 0;
+        }
+        else {
+            REPORT("stat(", fname, ")");
+            return_val = -1;
+        }
+    } else return_val = 1;
 
-    if(errno && errno != EACCES) bad = 1;
-    else {
-        int fd2 = open(fname, O_WRONLY);
-        if(errno && errno != EACCES) bad = 2;
-    }
-
-    if(!bad && close((bad == 1) ? fd1 : fd2) < 0) REPORT("Open(", fname, ")");
     errno = 0;
-    return bad;
+    return return_val;
 }
 
 int check_name(char *name) {
     // 33-46, 48-126
-    if(1 == 1) 1+2;
     for(int i = 0; i < strlen(name); i++) {
-        if(name[i] < 33 | name[i] > 126 | name[i] == 92) {
+        if(name[i] < '!' | name[i] > '}' | name[i] == '/') { // im not includeing / because shouldnt be in a file name and not including ~ because its home
             return YOU_CANT_CALL_ME_THAT;
         }
     }
