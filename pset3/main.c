@@ -62,20 +62,19 @@ int main(int argc, char *arg[]) {
 
             str = NULL; // necessary for strtok to work properly
         }
-/*
+
         // Fork
         switch(child = fork()) {
             case -1: // An error occured
                 REPORT("fork()", "", "");
-                return -1;
+                exit(EXIT_FAILURE);
             case 0: // In child
-                printf("Im born!\n");
-                return 0;
+                printf("Im born!\n\n");
+                _exit(EXIT_SUCCESS);
             default: // In parent
-                printf("Im with child.");
+                printf("Im with child.\n\n");
                 break;
         }
-*/
         // NOTE TO SELF: Be careful using num_args because it will be the last index of arguments, not how many there are
 
         // Resetting shit for the next command
