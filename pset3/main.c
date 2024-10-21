@@ -1,8 +1,11 @@
 #include <dirent.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -36,20 +39,15 @@ int main(int argc, char *arg[]) {
         str = curr_command;
         num_args = -1;
         while((arguments[++num_args] = strtok(str, " "))) {
-            
-            // Check if the argument is one of the built in commands
+            // Check if the argument is one of the built in commands              DONT FORGET THIS!!!!!!
             if(num_args == 0) {
                 if(arguments[num_args] == "cd") {
-                    
                     continue;
                 } else if(arguments[num_args] == "pwd") {
-
                     continue;
                 } else if(arguments[num_args] == "exit") {
-
                     continue;
                 }
-                
             }
 
             // Check if the argument is actually an io change
@@ -67,12 +65,38 @@ int main(int argc, char *arg[]) {
         switch(child = fork()) {
             case -1: // An error occured
                 REPORT("fork()", "", "");
-                exit(EXIT_FAILURE);
+                _exit(EXIT_FAILURE);
             case 0: // In child
-                printf("Im born!\n\n");
+                // Set IO redirection
+                char *path = calloc(255, sizeof(char));
+                int fd, flags = 0, offset = 0, fd_next;
+                for(int i = 0; i < num_io; i++) {
+
+                    if((io[i])[0] == '<') { offset = 1; flags = O_RDONLY; fd_next = 0; }
+                    else if((io[i])[0] == '>') {
+                        if((io[i])[1] == '>') { offset = 2; flags = O_WRONLY | O_TRUNC | O_CREAT; fd_next = 1; }
+                        else { offset = 1; flags = O_WRONLY | O_APPEND | O_CREAT; fd_next = 1;}
+                    } else if((io[i])[0] == '2') {
+                        if((io[i])[2] == '>') { offset = 3; flags = O_WRONLY | O_APPEND | O_CREAT; fd_next = 2; }
+                        else { offset = 2; flags = O_WRONLY | O_TRUNC | O_CREAT; fd_next = 2;}
+                    } 
+
+                    if((fd = open(strncpy(path, io[i]+offset, strlen(io[i])), flags)) < 0) {
+                        REPORT("open(", path+offset, ", some flags)");
+                        exit(EXIT_FAILURE);
+                    } else if(dup2(fd, fd_next) < 0) {
+                        REPORT("dup2(fd of ", path+offset, ", 0)");
+                        exit(EXIT_FAILURE);
+                    }
+            
+
+                }
+                // Execute the command
                 _exit(EXIT_SUCCESS);
             default: // In parent
-                printf("Im with child.\n\n");
+                struct rusage ru;
+                int options, status;
+                if(wait3(&status, 0, &ru) == -1) REPORT("wait3(&status, *ru, 0)", "", "");
                 break;
         }
         // NOTE TO SELF: Be careful using num_args because it will be the last index of arguments, not how many there are
