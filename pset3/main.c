@@ -30,16 +30,16 @@ int main(int argc, char *arg[]) {
         // Getting rid of the newline character at the end
         if(curr_command[strlen(curr_command) - 1] == '\n' && strlen(curr_command) == 1) continue;
         else if(curr_command[strlen(curr_command) - 1] == '\n') curr_command[strlen(curr_command) - 1] = '\0';
-        printf("%s\n", curr_command);
 
         // If the line begins with an octothorpe, don't consider it
         if(curr_command[0] == '#') continue;
+        printf("\n- - - - - - - - - - - - - -\nEXECUTING: %s\n\n", curr_command);
 
         // Parse arguments and IO specifications
         str = curr_command;
         num_args = -1;
         while((arguments[++num_args] = strtok(str, " "))) {
-            // Check if the argument is one of the built in commands              DONT FORGET THIS!!!!!!
+            // Check if the argument is one of the built in commands KOALA
             if(num_args == 0) {
                 if(arguments[num_args] == "cd") {
                     continue;
@@ -71,11 +71,10 @@ int main(int argc, char *arg[]) {
                 char *path = calloc(255, sizeof(char));
                 int fd, flags = 0, offset = 0, fd_next;
                 for(int i = 0; i < num_io; i++) {
-
                     if((io[i])[0] == '<') { offset = 1; flags = O_RDONLY; fd_next = 0; }
                     else if((io[i])[0] == '>') {
-                        if((io[i])[1] == '>') { offset = 2; flags = O_WRONLY | O_TRUNC | O_CREAT; fd_next = 1; }
-                        else { offset = 1; flags = O_WRONLY | O_APPEND | O_CREAT; fd_next = 1;}
+                        if((io[i])[1] == '>') { offset = 2; flags = O_WRONLY | O_APPEND | O_CREAT; fd_next = 1; }
+                        else { offset = 1; flags = O_WRONLY | O_TRUNC | O_CREAT; fd_next = 1;}
                     } else if((io[i])[0] == '2') {
                         if((io[i])[2] == '>') { offset = 3; flags = O_WRONLY | O_APPEND | O_CREAT; fd_next = 2; }
                         else { offset = 2; flags = O_WRONLY | O_TRUNC | O_CREAT; fd_next = 2;}
@@ -88,11 +87,11 @@ int main(int argc, char *arg[]) {
                         REPORT("dup2(fd of ", path+offset, ", 0)");
                         exit(EXIT_FAILURE);
                     }
-            
-
                 }
                 // Execute the command
+                execvp(arguments[0], arguments);
                 _exit(EXIT_SUCCESS);
+                break; // Just in case (?)
             default: // In parent
                 struct rusage ru;
                 int options, status;
