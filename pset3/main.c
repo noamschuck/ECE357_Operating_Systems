@@ -89,8 +89,11 @@ int main(int argc, char *arg[]) {
                     }
                 }
                 // Execute the command
-                execvp(arguments[0], arguments);
-                _exit(EXIT_SUCCESS);
+                if(execvp(arguments[0], arguments) < 0) {
+                    REPORT("execvp(arguments[0], arguments)", "", "");
+                    exit(EXIT_FAILURE);
+                }
+                exit(EXIT_FAILURE);
                 break; // Just in case (?)
             default: // In parent
                 struct rusage ru;
