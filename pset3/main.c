@@ -19,14 +19,13 @@ int main(int argc, char *arg[]) {
 
         // If the line begins with an octothorpe, don't consider it
         if(curr_command[0] == '#') continue;
-        //printf("- - - - - - - - - - - - - -\nEXECUTING: %s\n", curr_command);
 
         // Parse arguments and IO specifications
         str = curr_command;
         num_args = -1;
         while((arguments[++num_args] = strtok(str, " "))) {
             // Check if the argument is actually an io change
-            for(int i = 0; (arguments[num_args])[i]; i++) {
+            for(int i = 0; i < 3; i++) {
                 if((arguments[num_args])[i] == '<' || (arguments[num_args])[i] == '>') {
                     io[num_io++] = arguments[num_args--];
                     break;
@@ -37,14 +36,17 @@ int main(int argc, char *arg[]) {
 
         // Check if the argument is one of the built in commands 
         if(!strcmp(arguments[0],"cd")) {
-            if(chdir((arguments[1]) ? arguments[1] : "~") < 0) {
+            if(chdir((arguments[1]) ? arguments[1] : getenv("HOME")) < 0) {
                 REPORT("chdir(", (arguments[1]) ? arguments[1] : "~", ")");
+                errno = 0;
             }
             continue;
         } else if(!strcmp(arguments[0], "pwd")) {
             char path[1000];
-            if(!getcwd(path, 1000)) REPORT("getcwd(", path, ", 1000)");
-            printf("Path: %s\n", path);
+            if(!getcwd(path, 1000)) {
+                REPORT("getcwd(", arguments[1], ", 1000)");
+                errno = 0;
+            } else printf("%s\n", path);
             continue;
         } else if(!strcmp(arguments[0], "exit")) {
             if(arguments[1]) exit(atoi(arguments[1]));
@@ -52,6 +54,7 @@ int main(int argc, char *arg[]) {
             continue;
         }
 
+        fflush(in);
         // Fork
         switch(child = fork()) {
             case -1: // An error occured
@@ -73,7 +76,7 @@ int main(int argc, char *arg[]) {
                     } 
 
                     if((fd = open(strncpy(path, io[i]+offset, strlen(io[i])), flags)) < 0) {
-                        REPORT("open(", path+offset, ", some flags)");
+                        REPORT("open(", path, ", some flags)");
                         exit(EXIT_FAILURE);
                     } else if(dup2(fd, fd_next) < 0) {
                         REPORT("dup2(fd of ", path+offset, ", 0)");
@@ -82,7 +85,7 @@ int main(int argc, char *arg[]) {
                 }
 
                 if(execvp(arguments[0], arguments) < 0) {
-                    REPORT("execvp(arguments[0], arguments)", "", "");
+                    REPORT("execvp(", arguments[0], ", arguments)");
                     exit(EXIT_FAILURE); //KOALA should it be this or 127
                 }
                 exit(EXIT_SUCCESS);
@@ -90,11 +93,12 @@ int main(int argc, char *arg[]) {
             default: // In parent
                 struct rusage ru;
                 int options, status;
-                if(wait3(&status, 0, &ru) == -1) REPORT("wait3(&status, *ru, 0)", "", "");
-                if(!WIFEXITED(status)) {
-                    if(WIFSTOPPED(status)) wexit = WSTOPSIG(status);
-                    else WEXITSTATUS(status);
-                } else wexit = 0;
+                if(wait3(&status, 0, &ru) == -1) {
+                    REPORT("wait3(&status, *ru, 0)", "", "");
+                    errno = 0;
+                }
+                if(!WIFEXITED(status) & WIFSTOPPED(status)) wexit = WSTOPSIG(status);
+                else wexit = WEXITSTATUS(status);
                 break;
         }
     }

@@ -5,6 +5,7 @@ make: main.c
 	$(CC) $(CFLAGS) -o shell main.c
 
 run:
+	clear
 	./shell words
 
 clean:
