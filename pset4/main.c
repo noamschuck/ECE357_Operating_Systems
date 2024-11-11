@@ -79,15 +79,14 @@ do_write:
                 }
                 fprintf(stderr, "CLOSING\n");
                 close(fds1[1]);
-                while(wait(&wstatus) > 0);
+                while(wait(&wstatus) > 0 || errno == EINTR);
                 //close(fds2[1]);
                 //while(wait(&wstatus) > 0 || errno == EINTR);
                 break;
             case GREP:
                 // KOALA: What do i do if the dupping fails?
+                close(fds1[1]);
                 errno = 0;
-                //dup2(fds1[0], 0);
-                //dup2(fds2[1], 1);
                 redirect(fds1[0], 1);
                 if(!errno) execlp("grep", "grep", pattern, NULL);
                 //else REPORT("dup2(in, 0)", "", "");
