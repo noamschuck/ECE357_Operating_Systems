@@ -1,16 +1,20 @@
 #include "macros.h"
 
-int total_bytes = 0, total_files = 0, done_running = 0, pid[] = {0, 0, 0};
-jmp_buf jmp_point;
+volatile int total_bytes = 0, total_files = 0, done_running = 0, pid[] = {0, 0, 0};
+volatile int fd, fds1[2], fds2[2];
+sigjmp_buf jmp_point;
 struct sigaction sa1, sa2;
+
+volatile int change = 0, delete = 1; // TODO: delete this
 
 int redirect(int in, int out);
 void handler_1(int s);
 void handler_2(int s);
+int close_fd(int *fd);
 
 int main(int argc, char *argv[]) {
+    int process = PARENT;   
     char *pattern, buf[4096];
-    int fd, fds1[2], fds2[2], process = PARENT;
     
     // Terminate if no arguments were entered
     if(argc <= 1) {
@@ -29,14 +33,12 @@ int main(int argc, char *argv[]) {
     if(sigaction(SIGUSR2, &sa2, 0)) REPORT("sigaction(SIGUSR2, sa2, 0)", "", "");
 
     pattern = argv[1]; // The grep pattern
-    pid[0] = getpid(); //KOALA: remove this?                  
-    printf("Parent PID is: %d\n\n", pid[0]);
+    pid[0] = getpid();
+
     // Loop through the files
     for(int i = 2; i < argc; i++) {
-        
         total_files++;
-        if(setjmp(jmp_point)) goto loop_end;
-
+        
         // Open the file, if we can't skip to the next one
         if((fd = open(argv[i], O_RDONLY)) < 0) {
             REPORT("open(", argv[i], "O_RDONLY");
@@ -46,80 +48,105 @@ int main(int argc, char *argv[]) {
         // Create the pipes
         if(pipe(fds1) < 0 | pipe(fds2) < 0) {
             REPORT("pipe(fds1) or pipe(fds2)", "", "");
-            continue; // KOALA: Do i continue or exit?
+            return -1;
         }
+
         
         // Do the forking for both more and grep
         if((pid[1] = fork()) < 0) { 
             REPORT("fork()", "", "");
-            continue; // KOALA: Do i continue or exit?
+            return -1;
         } else if(!pid[1]) {
             process = GREP;
         } else {
             if((pid[2] = fork()) < 0) {
                 REPORT("fork()", "", "");
-                continue; // KOALA: Do i continue or exit?
+                return -1;
             } else if(!pid[2]) process = MORE;
+        }
+
+        // Setting long jump point
+        if(sigsetjmp(jmp_point, 1) && process == PARENT) {
+            if(close_fd(&fds1[1]) == -1) REPORT("close(a)", "", "");
+            if(close_fd(&fds2[1]) == -1) REPORT("close(b)", "", "");
+            if(close_fd(&fd) == -1) REPORT("close(c)", "", "");
+            if(close_fd(&fds1[0]) == -1) REPORT("close(d)", "", "");
+            if(close_fd(&fds2[0]) == -1) REPORT("close(e)", "", "");
+            
+            // Wait for children to end
+            while(wait(NULL) > 0 || errno == EINTR);
+            continue;
         }
 
         switch(process) {
             case PARENT:
+                printf(""); // You can't have a declaration after a label, it must be a statement
                 int bytes_read, bytes_written = 0, prev_write;
-                errno = 0;
+
+                // Read loop and writes to pipe
                 while((bytes_read = read(fd, buf, sizeof buf)) > 0) {
                     prev_write = 0;
-                    if(bytes_read < 0) { 
+                    if(bytes_read == -1) { 
                         REPORT("read(fd, buf, 4096)", "", "");
-                        continue; // KOALA: should i continue?
+                        goto loop_end;
                     } 
-    
-do_write:           bytes_written = write(fds1[1], buf + prev_write, bytes_read - prev_write);
-                    total_bytes += bytes_written;
+                    
+do_write:           bytes_written = write(fds1[1], buf + prev_write, bytes_read - prev_write); // Write
+                    total_bytes += bytes_written; // Update total bytes written
                     
                     // Error while writing
-                    if(bytes_written < 0 && errno != EINTR) {
+                    if(bytes_written == -1 && errno != EINTR) { // If error writing not from a signal
                         REPORT("write(fds1[0], buf, sizeof buf)", "", "");
-                        continue; // KOALA: should i continue?
-                    // Partial Write
-                    } else if(bytes_read - prev_write < bytes_written && errno == EINTR) {
+                        goto loop_end;
+                    } else if(bytes_read - prev_write < bytes_written && errno == EINTR) { // Partial write
                         fprintf(stderr, "\tPARTIAL\n");
                         prev_write += bytes_written;
-                        errno = 0;
                         goto do_write;
                     }
-
                 }
                 
-loop_end:       close(fds1[1]); // KOALA: add error checking for the close.
-                close(fds2[1]);
-                close(fd);
-                close(fds1[0]);
-                close(fds2[0]);
-
+                // Close open file descrip
+loop_end:       if(close_fd(&fds1[1]) == -1) REPORT("close(1)", "", "");
+                if(close_fd(&fds2[1]) == -1) REPORT("close(2)", "", "");
+                if(close_fd(&fd) == -1) REPORT("close(3)", "", "");
+                if(close_fd(&fds1[0]) == -1) REPORT("close(4)", "", "");
+                if(close_fd(&fds2[0]) == -1) REPORT("close(5)", "", "");
+                
+                // Wait for children to end
                 while(wait(NULL) > 0 || errno == EINTR);
                 break;
 
             case GREP:
-                close(fds1[1]);
-                close(fds2[0]);
-                close(fds2[0]);
-                errno = 0;
-                if(redirect(fds1[0], fds2[1]) < 0) break; // KOALA: what do i do if dup2 fails
-                if(!errno) execlp("grep", "grep", pattern, NULL);
-                else REPORT("execlp(grep, ...)", "", "");
-                close(fds2[1]);
+                // CLose unecessary open file descriptors
+                if(close_fd(&fds1[1]) == -1) REPORT("close(6)", "", "");
+                if(close_fd(&fds2[0]) == -1) REPORT("close(7)", "", "");
+                if(close_fd(&fd) == -1) REPORT("close(8)", "", "");
+
+                if(redirect(fds1[0], fds2[1]) < 0) return -1; // Redirect IO
+                
+                // Execute grep
+                if(execlp("grep", "grep", pattern, NULL) == -1) {
+                    REPORT("execlp(grep, ...)", "", "");
+                    if(close_fd(&fds2[1]) == -1) REPORT("close(9)", "", "");
+                    exit(EXIT_FAILURE);
+                }
                 break;
 
             case MORE:
-                close(fds1[1]);
-                close(fds2[1]);
-                close(fds1[0]);
-                errno = 0;
-                if(redirect(fds2[0], 1) < 0) {
-                    break;   // KOALA: what do i do if dup2 fails?
+                // Close unecessary open file descriptors
+                if(close_fd(&fds1[1]) == -1) REPORT("close(10)", "", "");
+                if(close_fd(&fds2[1]) == -1) REPORT("close(11)", "", "");
+                if(close_fd(&fds1[0]) == -1) REPORT("close(12)", "", "");
+                if(close_fd(&fd) == -1) REPORT("close(15)", "", "");
+
+                if(redirect(fds2[0], 1) < 0) return -1; // Redirect IO
+
+                //Execute more
+                if(execlp("more", "more", NULL) == -1) {
+                    REPORT("execlp(more, ...)", "", "");
+                    if(close_fd(&fds2[0]) == -1) REPORT("close(13)", "", "");
+                    exit(EXIT_FAILURE);
                 }
-                if(!errno) execlp("more", "more", NULL);
-                else REPORT("execlp(more, ...)", "", "");
                 break;
 
             default:
@@ -127,32 +154,35 @@ loop_end:       close(fds1[1]); // KOALA: add error checking for the close.
                 break;
         }
     }
-        if(fork() == 0) execlp("stty", "stty", "sane", NULL);
-        else wait(NULL);
 
-        return 0;
+    return 0;
 }
 
 void handler_1(int s) {
     if(s == SIGUSR1) {
-        fprintf(stderr, "\n-----------\nCurrent Statistics:\n  Files Parsed: %d\n  Bytes Written: %d\n----------\n", 
+        fprintf(stderr, "\n\n- - - - - - - - - - - - - - - - - - - - - -\n\nCurrent Statistics:\n  Files Parsed: %d\n  Bytes Written: %d\n\n- - - - - - - - - - - - - - - - - - - - - -\n\n", 
                 total_files, total_bytes);
+        delete = 0; // TODO: delete this
     }
 }
 
 void handler_2(int s) {
-    if(s == SIGUSR2) {
-        fprintf(stderr, "\n* * * * SUGSUR2 recieved, moving onto file #%d (or ending if that was the last file) * * * *\n", total_files+1);
-        kill(pid[1], SIGTERM);
-        kill(pid[2], SIGTERM);
-        longjmp(jmp_point, 1);
+    if(s == SIGUSR2 && getpid() == pid[0]) {
+        fprintf(stderr, "\n\n- - - - - - - - - - - - - - - - - - - - - -\n\n* * * * SUGSUR2 recieved, moving onto file #%d (or ending if that was the last file) * * * *\n\n- - - - - - - - - - - - - - - - - - - - - -\n\n", total_files+1);
+        kill(pid[1], SIGINT);
+        kill(pid[2], SIGINT);
+        siglongjmp(jmp_point, 1);
     }
 }
 
 int redirect(int in, int out) {
-    errno = 0;
-    if(dup2(in, 0) < 0) REPORT("dup2(in, 0)", "", "");
-    if(dup2(out, 1) < 0) REPORT("dup2(out, 1)", "", "");
-    if(errno) return -1;
+    if(dup2(in, 0) == -1 || dup2(out, 1) == -1) REPORT("dup2()", "", "");
     return 0;
+}
+
+int close_fd(int *fd) {
+    if(*fd == -1) return 1;
+    int ret = close(*fd);
+    *fd = -1;
+    return ret;
 }
