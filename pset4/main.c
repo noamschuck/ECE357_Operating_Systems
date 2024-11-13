@@ -5,8 +5,6 @@ volatile int fd, fds1[2], fds2[2];
 sigjmp_buf jmp_point;
 struct sigaction sa1, sa2;
 
-volatile int change = 0, delete = 1; // TODO: delete this
-
 int redirect(int in, int out);
 void handler_1(int s);
 void handler_2(int s);
@@ -162,7 +160,6 @@ void handler_1(int s) {
     if(s == SIGUSR1) {
         fprintf(stderr, "\n\n- - - - - - - - - - - - - - - - - - - - - -\n\nCurrent Statistics:\n  Files Parsed: %d\n  Bytes Written: %d\n\n- - - - - - - - - - - - - - - - - - - - - -\n\n", 
                 total_files, total_bytes);
-        delete = 0; // TODO: delete this
     }
 }
 

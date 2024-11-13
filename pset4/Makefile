@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -Wno-discarded-qualifiers
+CFLAGS=-g -Wno-format-zero-length -Wno-discarded-qualifiers
 
 make: main.c
 	$(CC) $(CFLAGS) -o catgrepmore main.c

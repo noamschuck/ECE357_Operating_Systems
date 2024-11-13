@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Get the parent process ID of the most recent 'catgrepmore' process
+PARENT_PID=$(pgrep -n catgrepmore)
+
+# Function to display help information
+function show_help {
+  echo "Usage: $(basename $0) [option]"
+  echo "Options:"
+  echo "  1       Send SIGUSR1 to the parent process"
+  echo "  2       Send SIGUSR2 to the parent process"
+  echo "  fd      List open file descriptors for the parent process"
+  echo "  p       Print the PARENT_PID"
+  echo "  --help  Display this help message"
+}
+
+# Check if PARENT_PID is set
+if [ -z "$PARENT_PID" ] && [ "$1" != "clear" ]; then
+  echo "Error: 'catgrepmore' process not found."
+  exit 1
+fi
+
+# Process command-line arguments
+case "$1" in
+  1)
+    kill -SIGUSR1 $PARENT_PID
+    echo 'Sent SIGUSR1' >> log
+    ;;
+  2)
+    kill -SIGUSR2 $PARENT_PID
+    echo 'Sent SIGUSR2' >> log
+    ;;
+  fd)
+    lsof -a -p "$PARENT_PID"
+    lsof -a -p "$PARENT_PID" >> log
+    echo >> log
+    ;;
+  p)
+    echo "PARENT_PID is $PARENT_PID"
+    ;;
+  --help)
+    show_help
+    ;;
+  clear)
+    >log
+    ;;
+  *)
+    echo "Invalid option. Use --help to see available options."
+    ;;
+esac
