@@ -166,7 +166,7 @@ void handler_1(int s) {
 void handler_2(int s) {
     if(s == SIGUSR2 && getpid() == pid[0]) {
         fprintf(stderr, "\n\n- - - - - - - - - - - - - - - - - - - - - -\n\n* * * * SUGSUR2 recieved, moving onto file #%d (or ending if that was the last file) * * * *\n\n- - - - - - - - - - - - - - - - - - - - - -\n\n", total_files+1);
-        kill(pid[1], SIGINT);
+        kill(pid[1], SIGINT); 
         kill(pid[2], SIGINT);
         siglongjmp(jmp_point, 1);
     }

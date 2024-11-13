@@ -5,7 +5,6 @@ PARENT_PID=$(pgrep -n catgrepmore)
 
 # Function to display help information
 function show_help {
-  echo "Usage: $(basename $0) [option]"
   echo "Options:"
   echo "  1       Send SIGUSR1 to the parent process"
   echo "  2       Send SIGUSR2 to the parent process"
@@ -15,7 +14,7 @@ function show_help {
 }
 
 # Check if PARENT_PID is set
-if [ -z "$PARENT_PID" ] && [ "$1" != "clear" ]; then
+if [ -z "$PARENT_PID" ] && [ "$1" != "clear" ] && [ "$1" != "run" ]; then
   echo "Error: 'catgrepmore' process not found."
   exit 1
 fi
@@ -29,6 +28,11 @@ case "$1" in
   2)
     kill -SIGUSR2 $PARENT_PID
     echo 'Sent SIGUSR2' >> log
+    ;;
+  run)
+    clear
+    ./catgrepmore tree hobbit_p1 hobbit_p2 hobbit_p1
+    echo './catgrepmore tree hobbit_p1 hobbit_p2 hobbit_p1'
     ;;
   fd)
     lsof -a -p "$PARENT_PID"
