@@ -17,7 +17,12 @@ int test4();
 void handler1(int s);
 
 int main(int argc, char *argv[]) {
-    if((fd = open("file", O_CREAT | O_TRUNC| O_RDWR, 0666)) == -1) REPORT("open(\"file\", O_CREAT | O_TRUNC, S_IRWXU)", "", "");
+    if((fd = open("file", O_CREAT | O_TRUNC| O_RDWR, 0666)) == -1) {
+        REPORT("open(\"file\", O_CREAT | O_TRUNC, S_IRWXU)", "", "");
+        exit -1;
+    }
+
+    printf("Running Test #%d:\n", atoi(argv[1]));
 
     switch(atoi((argv[1]))) {
         case 1:
@@ -78,29 +83,25 @@ int test1() {
 }
 
 int test23(int test) {
-    char buf[4096];
+    char buf[4096], *ptr;
 
-    if((mmap(NULL, 4096, PROT_WRITE, (test == 2) ? MAP_SHARED : MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
+    if((ptr = mmap(NULL, 4096, PROT_WRITE, (test == 2) ? MAP_SHARED : MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
         REPORT("mmap(NULL, 4096, PROT_READ, 0, fd, 0)", "", "");
         return -1;
     }
-
-    if(write(fd, "X", 1) == -1) {
-        REPORT("write(fd, \"X\", 1)", "", "");
-        return -1;
-    }
     
-    if(lseek(fd, 0, SEEK_SET) == -1) {
-        REPORT("lseek(fd, 10, SEEK_SET)", "", "");
+    if(ftruncate(fd, 4096) == -1) {
+        REPORT("ftruncate(fd, 4096)", "", "");
         return -1;
     }
+
+    ptr[0] = 'X';
 
     if(read(fd, buf, 1) == -1) {
         REPORT("read(fd, buf, 1)", "", "");
-        //return -1;
+        return -1;
     }
 
-    printf("buf is '%c'\n", buf[0]);
     if(buf[0] == 'X') exit(0);
     else exit(1);
 }
