@@ -1,14 +1,14 @@
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -Wno-unused-variable
 AS = gcc
-ASFLAGS = -Wall -g
+ASFLAGS = -Wall -g 
 
 # Target executable
 TARGET = program
 
 # Source files
-SRCS = spinlock_test.c spinlock.c tas.S
+SRCS = main.c sem.c spinlock.c tas.S
 OBJS = $(SRCS:.c=.o)
 
 # Default target

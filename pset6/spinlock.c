@@ -3,10 +3,9 @@
 
 int spin_lock(char *lock) {
     while(tas(lock)) {
-//        printf("waiting\n");
         sched_yield();
     }
-
+    
     return 1;
 }
 
