@@ -11,31 +11,29 @@
 
 int create_sems(struct sem **sems, int rocks);
 int create_tasks(int moves);
+void handler(int sig);
 
-int move_count, tid;
-pid_t pid;
+int move_count, tid, signal_count;
+pid_t pid; 
 
 int main(int argc, char *argv[]) {
     struct sem *sems;
+    sigset_t mask;
 
     // Create the list of semaphores and initialize them
     if(create_sems(&sems, atoi(argv[1])) == -1) { 
         return -1;
     }
     
-    // Create tasks
-    if(create_tasks(atoi(argv[2])) == -1) {
+    // Set signal handler
+    if(signal(SIGUSR1, handler) == SIG_ERR) {
+        perror("ERROR: signal(SIGUSR1, handler) resulted in error");
         return -1;
     }
 
-    switch(tid) {
-        case 7:
-            while(wait(NULL) > 0 && errno != ECHILD);
-            printf("All done!\n");
-            break;
-        default:
-            printf("VCPU %d (pid %d) has count %d left.\n", tid, pid, move_count);
-            break;
+    // Create tasks
+    if(create_tasks(atoi(argv[2])) == -1) {
+        return -1;
     }
 
     return 0;
@@ -84,4 +82,12 @@ int create_tasks(int moves) {
     tid = 7;
     pid = getpid();
     return 0;
+}
+
+/* Function: handler()
+ * Description: Handles signal SIGUSR1
+*/
+void handler(int sig) {
+    if(sig != SIGUSR1) fprintf(stderr, "ERROR: Ended up in the signal handler, but signal was not SIGUSR1.");  
+    else signal_count++;
 }
