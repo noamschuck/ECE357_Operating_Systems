@@ -15,6 +15,8 @@ struct sem {
     char lock;
     int id; // TODO: delte this
     int num_sleeping;
+    int sstats[6];
+    int astats[6];
 };
 
 void sem_init(struct sem *s, int count);

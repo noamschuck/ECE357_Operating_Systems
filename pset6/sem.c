@@ -55,6 +55,7 @@ try_again:
 
         // Add current process to wait queue (CRITICAL REGION)
         (s->sleeping)[s->num_sleeping++] = getpid();
+        (s->sstats[getpid()%6])++;
 
         spin_unlock(&(s->lock));
 
@@ -93,9 +94,9 @@ void sem_inc(struct sem *s) {
             (s->sleeping)[i] = 0;
         }
         s->num_sleeping = 0;
+        (s->astats[getpid()%6])++;
     } 
     s->count++;
-
     // Unlock the semaphore
     spin_unlock(&(s->lock));
 }

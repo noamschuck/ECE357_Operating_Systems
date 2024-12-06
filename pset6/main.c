@@ -8,9 +8,10 @@
 #include "sem.h"
 
 #define NUM_SEM 3
+#define NUM_TASKS 6
 
 int create_sems(struct sem **sems, int rocks);
-int create_tasks(int moves);
+int create_tasks(int moves, int (*pids)[6]);
 void handler(int sig);
 
 int move_count, tid, signal_count;
@@ -19,12 +20,13 @@ pid_t pid;
 int main(int argc, char *argv[]) {
     struct sigaction sa;
     struct sem *sems;
+    int pids[6], stats_index;
 
     // Create the list of semaphores and initialize them
     if(create_sems(&sems, atoi(argv[1])) == -1) { 
         return -1;
     }
-    
+
     // Set signal handler
     sa.sa_handler = handler;
     sa.sa_flags = 0;
@@ -38,24 +40,33 @@ int main(int argc, char *argv[]) {
     }
 
     // Create tasks
-    if(create_tasks(atoi(argv[2])) == -1) {
+    if(create_tasks(atoi(argv[2]), &pids) == -1) {
         return -1;
     }
 
     switch(tid) {
         case 7:
-            //sigaction(SIGUSR1, &sa, 0); // TODO: delete
             while(wait(NULL) > 0 || errno == EINTR);
 
             printf("\n\n- - - - - - - FINAL REPORT - - - - - - -\n");
-            printf("\nSem 1:\n  Count =  %d\n  Lock = %d\n", sems[0].count, sems[0].lock);
-            printf("\nSem 2:\n  Count =  %d\n  Lock = %d\n", sems[1].count, sems[1].lock);
-            printf("\nSem 3:\n  Count =  %d\n  Lock = %d\n", sems[2].count, sems[2].lock);
+            printf("\n Semaphore Stats:\n");
+            printf("  1: Count = %d\n     Lock  = %d\n", sems[1].count, sems[0].lock);
+            printf("  2: Count = %d\n     Lock  = %d\n", sems[1].count, sems[1].lock);
+            printf("  3: Count = %d\n     Lock  = %d\n\n", sems[2].count, sems[2].lock);
+
+            printf("Task Stats:\n");
+            printf("  VCPU #: Sleeps Wakes\n");
+            printf("  -----   ------ -----\n");
+
+            for(int i = 0; i < 6; i++) {
+                stats_index = (pids[i])%6;
+                printf("  VCPU %d:  %d  %d\n", i, sems[i/2].sstats[stats_index], sems[2-(i+3)%3].astats[stats_index]);
+            }
             printf("- - - - - - - - - - - - - - - - - - - - - -\n\n");
 
             break;
         default:
-            printf("**VCPU %d (pid %d) is starting.\n", tid, pid);
+            printf("VCPU %d (pid %d) is starting.\n", tid, pid);
 
             while(move_count) {
                 sem_wait(&(sems[tid/2]));
@@ -63,7 +74,7 @@ int main(int argc, char *argv[]) {
                 move_count--;
             }
 
-            printf("--VCPU %d (pid %d) finished. Signal handler invoked %d times.\n", tid, pid, signal_count);
+            printf("VCPU %d (pid %d) finished.\n", tid, pid);
             break;
     }
 
@@ -96,8 +107,8 @@ int create_sems(struct sem **sems, int rocks) {
  * Description: Spawns 6 child processes and assigns them a task ID.
  * Return Value: Returns 0 on success and -1 on failure.
 */
-int create_tasks(int moves) {
-    for(int i = 0; i < 6; i++) {
+int create_tasks(int moves, int (*pids)[6]) {
+    for(int i = 0; i < NUM_TASKS; i++) {
         if((pid = fork()) == -1) {
             perror("ERROR: fork() resulted in");
             return -1;
@@ -109,7 +120,7 @@ int create_tasks(int moves) {
             pid = getpid();
             move_count = moves;
             return 0;
-        }
+        } else (*pids)[i] = pid;
     }
 
     // Initializing values for the parent
