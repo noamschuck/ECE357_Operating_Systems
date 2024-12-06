@@ -13,28 +13,37 @@ int sem_try(struct sem *s) {
     } else return 0; // We dont have resources availible
 }
 
-void sem_wait(struct sem *s) {
+void sem_wait(struct sem *s) { 
     int num_elements;
-    sigset_t newmask, sigusr_mask;
-    
+    sigset_t sleep_mask, sigusr_mask;
+
+try_again:
+
     spin_lock(&(s->lock));
+    //printf("  %d accessing shell %d to take (count %d)\n", tid, s->id, s->count);
     if(!sem_try(s)) {
         
         // Make a new  maske that blocks everything (later removes SIGUSR1)
-        if(sigfillset(&newmask) == -1) {
-            perror("ERROR: sigfillset(newmask) resulted error");
+        if(sigfillset(&sleep_mask) == -1) {
+            perror("ERROR: sigfillset(sleep_mask) resulted error");
             return; // TODO: Should I just be returning if they dont work?
         }
         
         // Remove SIGUSR1 from the new mask
-        if(sigdelset(&newmask, SIGUSR1) == -1) { // TODO: Is SIGUSR1 the only one i should unmask?
-            perror("ERROR: sigdelset(newmask, SIGUSR1) resulted error");
+        if(sigdelset(&sleep_mask, SIGUSR1) == -1) { // TODO: Is SIGUSR1 the only one i should unmask?
+            perror("ERROR: sigdelset(sleep_mask, SIGUSR1) resulted error");
             return;
         }
 
         // Make a new mask that blocks SIGUSR1
-        if(sigaddset(&sigusr_mask, SIGUSR1) == -1) { // TODO: Is SIGUSR1 the only one i should unmask?
-            perror("ERROR: sigdelset(sigusr_mask, SIGUSR1) resulted error");
+        if(sigemptyset(&sigusr_mask) == -1) { 
+            perror("ERROR: sigemptyset(&sigusr_mask, SIGUSR1) resulted error");
+            return;
+        }
+
+        // Make a new mask that blocks SIGUSR1
+        if(sigaddset(&sigusr_mask, SIGUSR1) == -1) { 
+            perror("ERROR: sigaddset(&sigusr_mask, SIGUSR1) resulted error");
             return;
         }
 
@@ -45,13 +54,14 @@ void sem_wait(struct sem *s) {
         }
 
         // Add current process to wait queue (CRITICAL REGION)
-        num_elements = s->max_count - s->count;
-        (s->sleeping)[num_elements - 1] = getpid();
+        (s->sleeping)[s->num_sleeping++] = getpid();
 
         spin_unlock(&(s->lock));
+
         // Wait
-        if(sigsuspend(&newmask) == -1 && errno != EINTR) {
-            perror("ERROR: sigsuspend(newmask)");
+        //printf("  %d sleep\n", tid);
+        if(sigsuspend(&sleep_mask) == -1 && errno != EINTR) {
+            perror("ERROR: sigsuspend(sleep_mask)");
             return;
         }
 
@@ -59,33 +69,32 @@ void sem_wait(struct sem *s) {
 
         // Unblock SIGUSR1
         if(sigprocmask(SIG_UNBLOCK, &sigusr_mask, NULL) == -1) {
-            perror("ERROR: sigprocmask(SIG_SETBLOCK, sigusr_mask, NULL) resulted in error");
+            perror("ERROR: sigprocmask(SIG_UNBLOCK, ^sigusr_mask, NULL) resulted in error");
             return;
         }
+        
+        goto try_again;
+
     } else {
         spin_unlock(&(s->lock)); // Unlock the semaphore if we successfully got the rock!
     }
 }
 
 void sem_inc(struct sem *s) {
-    int num_elements;
-    
     spin_lock(&(s->lock));
-    if(s->count < 1) { // If there is stuff waiting
-        // Increment count and shift pids left
-        num_elements = s->count + s->max_count;
-        
-        for(int i = 0; i < num_elements; i++) {
+    
+    if(s->num_sleeping > 0) { // If there is stuff waiting
+        for(int i = 0; i < s->num_sleeping; i++) {
             // wake up the sleeping process
             if(kill((s->sleeping)[i], SIGUSR1) == -1) {
                 perror("ERROR: kill((s->sleeping)[i], SIGUSR1) resulted in error");
-                return; // TODO: should we return here?
+                return; 
             }
             (s->sleeping)[i] = 0;
         }
-
-        s->count = s->max_count; // Reset the count
-    }
+        s->num_sleeping = 0;
+    } 
+    s->count++;
 
     // Unlock the semaphore
     spin_unlock(&(s->lock));
