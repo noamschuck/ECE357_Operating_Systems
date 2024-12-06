@@ -2,7 +2,6 @@
 
 void sem_init(struct sem *s, int count) {
     s->count = count;
-    s->max_count = count;
     s->lock = 0;
 }
 
@@ -20,18 +19,17 @@ void sem_wait(struct sem *s) {
 try_again:
 
     spin_lock(&(s->lock));
-    //printf("  %d accessing shell %d to take (count %d)\n", tid, s->id, s->count);
     if(!sem_try(s)) {
         
         // Make a new  maske that blocks everything (later removes SIGUSR1)
         if(sigfillset(&sleep_mask) == -1) {
-            perror("ERROR: sigfillset(sleep_mask) resulted error");
-            return; // TODO: Should I just be returning if they dont work?
+            perror("ERROR: sigfillset(&sleep_mask) resulted error");
+            return; 
         }
         
         // Remove SIGUSR1 from the new mask
-        if(sigdelset(&sleep_mask, SIGUSR1) == -1) { // TODO: Is SIGUSR1 the only one i should unmask?
-            perror("ERROR: sigdelset(sleep_mask, SIGUSR1) resulted error");
+        if(sigdelset(&sleep_mask, SIGUSR1) == -1) { 
+            perror("ERROR: sigdelset(&sleep_mask, SIGUSR1) resulted error");
             return;
         }
 
@@ -59,8 +57,7 @@ try_again:
 
         spin_unlock(&(s->lock));
 
-        // Wait
-        //printf("  %d sleep\n", tid);
+        // Wait untill there is some rocks to grab
         if(sigsuspend(&sleep_mask) == -1 && errno != EINTR) {
             perror("ERROR: sigsuspend(sleep_mask)");
             return;
@@ -96,7 +93,8 @@ void sem_inc(struct sem *s) {
         s->num_sleeping = 0;
         (s->astats[getpid()%6])++;
     } 
+
+    // Increment semaphore and unlock it
     s->count++;
-    // Unlock the semaphore
     spin_unlock(&(s->lock));
 }

@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     if(sigemptyset(&sa.sa_mask) == -1) {
         perror("ERROR: sigemptyset(&sa.sa_mask) resulted in error");
     }
-
+            // Report the final statistics
     if(sigaction(SIGUSR1, &sa, 0) == -1) {
         perror("ERROR: sigaction(SIGUSR1, &sa, 0) resulted in error");
         return -1;
@@ -44,10 +44,12 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // Tasks playing the game and parent waiting for tasks to finish up
     switch(tid) {
         case 7:
-            while(wait(NULL) > 0 || errno == EINTR);
+            while(wait(NULL) > 0 || errno == EINTR); // Wait for children to finish up
 
+            // Report the final statistics
             printf("\n\n- - - - - - - FINAL REPORT - - - - - - -\n");
             printf("\n Semaphore Stats:\n");
             printf("  1: Count = %d\n     Lock  = %d\n", sems[1].count, sems[0].lock);
@@ -69,6 +71,10 @@ int main(int argc, char *argv[]) {
             printf("VCPU %d (pid %d) is starting.\n", tid, pid);
 
             while(move_count) {
+                // Credit to james ryan for the idea to find a formula for assigning the movements-
+                // he told me his formulas but that was days before I got here so I forgot them and
+                // then i figured out these ones. I'm not sure if they are the same ones he used, they could be
+                // but I arrived at them myself as well.
                 sem_wait(&(sems[tid/2]));
                 sem_inc(&(sems[2-(tid+3)%3]));
                 move_count--;
@@ -96,7 +102,6 @@ int create_sems(struct sem **sems, int rocks) {
     // Initialize the semaphores
     for(int i = 0; i < NUM_SEM; i++) {
         sem_init(&((*sems)[i]), rocks);
-        (*sems)[i].id = i; //delete
         (*sems)[i].num_sleeping = 0; 
     }
     
@@ -134,6 +139,4 @@ int create_tasks(int moves, int (*pids)[6]) {
 */
 void handler(int sig) {
     if(sig != SIGUSR1) fprintf(stderr, "ERROR: Ended up in the signal handler, but signal was not SIGUSR1.");  
-    else signal_count++;
 }
-

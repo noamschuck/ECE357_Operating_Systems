@@ -10,10 +10,8 @@
 
 struct sem {
     int count;
-    int max_count;
-    pid_t sleeping[6];
     char lock;
-    int id; // TODO: delte this
+    pid_t sleeping[6];
     int num_sleeping;
     int sstats[6];
     int astats[6];
